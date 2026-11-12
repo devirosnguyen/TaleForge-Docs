@@ -39,8 +39,37 @@ The **Invert** checkbox on every condition flips its result; you don't need a "n
 ## Your own actions
 
 Same pattern with **TFAction** and **Run** (`Run_Implementation` in C++). Actions run when their node is entered or their option
-is chosen. For things that belong to game code (open a shop, give an item, play a camera shot), a **Send Event** action with a
-gameplay tag and a payload name is often enough: bind **On Dialogue Event** on the Story component.
+is chosen. For things that belong to game code (open a shop, play a camera shot), a **Send Event** action with a gameplay tag and a
+payload name is often enough: bind **On Dialogue Event** on the Story component. To give items, experience or money, use **Give
+Reward** and a Reward Receiver (next section).
+
+## Rewards into your game
+
+TaleForge has no inventory, stats or wallet of its own: **Give Reward** describes what to give (kind, your id, amount, display name,
+icon) and your game gives it. Implement `ITFRewardReceiver` on whatever owns that state for the player:
+
+```cpp
+UCLASS()
+class AMyPlayerState : public APlayerState, public ITFRewardReceiver
+{
+	GENERATED_BODY()
+	virtual void ReceiveReward_Implementation(const FTFReward& Reward, UTFStoryComponent* Story) override
+	{
+		switch (Reward.Kind)
+		{
+		case ETFRewardKind::Experience: AddExperience(Reward.Amount); break;
+		case ETFRewardKind::Currency: AddMoney(Reward.Id, Reward.Amount); break;
+		case ETFRewardKind::Item: Inventory->AddItem(Reward.Id, Reward.Amount); break;
+		default: break;
+		}
+	}
+};
+```
+
+It runs on the server, after the quest changes of the same step (a receiver may start or change quests). The first receiver found
+gets each reward: the actor that owns the Story component, then the player state, the pawn and the player controller, each before
+its components. `UTFQuestAsset::GetRewardList()` returns the rewards a quest gives on completion (for your own UI), and
+`UTFQuestWidgetBase::GetRewardMarkup()` the rich text the journal and the notices show.
 
 ## Driving a conversation from C++
 

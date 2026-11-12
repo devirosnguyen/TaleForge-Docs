@@ -75,12 +75,18 @@ Quests, speakers and themes open in the standard details editor.
 | | |
 |---|---|
 | Quest | Title, description, category, prerequisites (conditions), stages, rewards (actions run on completion), fail actions. Repeatable, retryable after failing, tracked on accept |
+| Rewards | **Give Reward**: experience, currency, items or anything else, each with your game's id, an amount, a display name and a theme icon. The journal lists them before the quest is done, a notice shows each one when given. Your game gives them in a **Reward Receiver** (below); **Add To Variables** also keeps a count in Global variables (`{Gold}`), with no game code |
 | Stage | Journal text, objectives, and where to go when it is done: the first **Link** whose conditions pass, else **Next Stage**; none ends the quest (completed, or failed when **Ends In Failure**). **All** or **Any** required objectives finish it. Enter and complete actions |
 | Objective | Progresses when you report an event whose tag is its **Event Tag** or a child of it (`Enemy.Wolf.Alpha` counts for `Enemy.Wolf`), for its **Target** if set, up to **Required Count**; its conditions must also pass. Without an event tag it completes when its conditions pass; with neither, only **Complete Objective** does |
 | Roles | **Required** (needed; failing it fails the quest), **Optional** (never blocks), **Fail Trigger** (completing it fails the quest: "the merchant dies") |
 | Branch To | Completing this objective ends the stage at once and goes to that stage (kill or persuade the bandit) |
 | Time limit | Seconds per objective; running out fails it |
 | Talk event | Starting a conversation with a participant reports `TaleForge.Event.Talk` with its Participant Id as target, before the conversation runs |
+
+**Giving rewards to the player.** Implement the **TF Reward Receiver** interface (event **Receive Reward**: the reward and the
+Story component) on the player state, the pawn, the player controller or one of their components: TaleForge calls the first one it
+finds (the actor that owns the Story component first), on the server. Add the item to your inventory, the experience to your stats.
+In a dialogue, a Give Reward action on a node or an option gives at once ("Here, take this").
 
 Objective text can show progress: `Wolves {Count}/{Required}` (**Get Objective Text**). Report negative counts when an item is
 dropped; counts never go below 0 or above the required count. Quest conditions are checked again whenever variables change
@@ -93,7 +99,7 @@ your conditions read has changed).
 |---|---|
 | Variables | Bool, int, float or name values plus gameplay tags, in three scopes: **Local** (this conversation), **Actor** (the NPC's Participant component), **Global** (the player's Story component) |
 | Conditions | Compare Variable, Has Tags, Chance, Group (All / Any, nestable), Quest Status (optionally at a stage), Objective Completed; each can be inverted. Write your own in Blueprint or C++ |
-| Actions | Set Variable (set, add, toggle), Modify Tags, Send Event (received by **On Dialogue Event**), Start Quest, Report Quest Event, Complete Objective, Set Quest Stage, End Quest (fail or abandon), Focus Camera, Play Sequence. Write your own |
+| Actions | Set Variable (set, add, toggle), Modify Tags, Send Event (received by **On Dialogue Event**), Give Reward, Start Quest, Report Quest Event, Complete Objective, Set Quest Stage, End Quest (fail or abandon), Focus Camera, Play Sequence. Write your own |
 
 **Camera and cutscenes.** **Focus Camera** moves the player's view, with a blend, to the partner (through its first active Camera
 component if it has one, else its location and rotation), to the first actor with a **Camera Tag** (place a camera actor for the shot
@@ -115,8 +121,8 @@ One call shows everything: **Create Story HUD** (Player Controller, Story) in yo
 |---|---|
 | Dialogue (`UTFDialogueWidget`) | Name, portrait (by mood), the line typed out, options (locked ones shown disabled, chosen ones dimmed), continue mark, AUTO / SKIP mark, backlog |
 | Quest tracker (`UTFQuestTrackerWidget`) | The tracked quest's title and current objectives, with progress and timers; hidden during conversations |
-| Quest notices (`UTFQuestToastWidget`) | New quest, objective complete / failed, quest completed / failed (progress too, if enabled); **Show Toast** for your own |
-| Journal (`UTFJournalWidget`) | Active / completed / failed tabs, the story so far (earlier stages dimmed), objectives; track a quest. Bind **Toggle Journal** to your journal key |
+| Quest notices (`UTFQuestToastWidget`) | New quest, objective complete / failed, quest completed / failed, each reward given (progress too, if enabled); **Show Toast** for your own |
+| Journal (`UTFJournalWidget`) | Active / completed / failed tabs, the story so far (earlier stages dimmed), objectives, rewards; track a quest. Bind **Toggle Journal** to your journal key |
 
 **Layouts** (Project Settings -> Plugins -> TaleForge UI -> Layout, or **Set Dialogue Layout** at runtime): **Bottom Box** (RPG),
 **Visual Novel** (a large portrait standing on a wide box, options in the middle), **Speech Bubble** (above whoever speaks: the
@@ -213,7 +219,7 @@ The same conversions work at runtime (`FTFDataExchange`), e.g. to load story con
 
 | Errors | Warnings |
 |---|---|
-| No Start node; two Start nodes with the same entry name; a link to a node or stage that does not exist; a Jump to a missing entry; a Choice without options; duplicate ids or names; an endless loop of nodes that never stop (or of quest stages without objectives); a quest without stages; a Required Count below 1; a link without a target | Nodes or stages never reached; a loop that can only end through a condition; a Branch without conditions; a Random without weights; a speaker role not in Participants; empty texts; texts that cannot be translated (culture invariant); empty entries in condition / action lists; a fail trigger with a Branch To |
+| No Start node; two Start nodes with the same entry name; a link to a node or stage that does not exist; a Jump to a missing entry; a Choice without options; duplicate ids or names; an endless loop of nodes that never stop (or of quest stages without objectives); a quest without stages; a Required Count below 1; a link without a target; a reward without an Id or with an Amount below 1 | Nodes or stages never reached; a loop that can only end through a condition; a Branch without conditions; a Random without weights; a speaker role not in Participants; empty texts; texts that cannot be translated (culture invariant); empty entries in condition / action lists; a fail trigger with a Branch To; a Give Reward without rewards |
 
 ## Multiplayer
 
@@ -228,6 +234,8 @@ The server owns every story; the Story component replicates to its owning player
   server (kills, pickups, triggers).
 - **Who may talk:** a client's request to talk is checked by **Can Start Dialogue With** (default: the actor has a Dialogue Participant
   with a dialogue, within **Max Talk Distance** of the player's pawn when set). Override it for your own rules.
+- **Rewards:** the Reward Receiver is called on the server only; **On Reward Given** fires on the server and on the owning client
+  (the notices use it).
 - **Party quests:** players whose Story components have the same **Party Id** share quests marked **Shared**: when one accepts it,
   all get it, and what any of them reports (events, completed objectives) counts for all.
 - **Camera:** Focus Camera runs on the server and moves that player's view on their client; the end of the conversation puts it back.
