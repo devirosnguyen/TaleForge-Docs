@@ -6,7 +6,7 @@ title: TaleForge
 
 A data-driven dialogue and quest system for Unreal Engine 5, in C++, usable from Blueprint.
 
-> Version 0.1 (before release). See [Extending TaleForge](Extending.md) to write your own conditions, actions and widgets.
+> Version 1.0. See [Extending TaleForge](Extending.md) to write your own conditions, actions and widgets.
 
 ## Quick start
 
